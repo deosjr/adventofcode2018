@@ -18,7 +18,7 @@ part1(List, Out, IDMapOut, Success) :-
   % - set id or count overlap in giant map(tuple->overlap_state)
   map.init(MapIn),
   map.init(IDMapIn),
-  list.foldl4(do_per_line, List, MapIn, _, yes, ParseSucceed, 0, TotalOverlap, IDMapIn, IDMapOut),
+  list.foldl4(do_per_line, List, MapIn, _, IDMapIn, IDMapOut, 0, TotalOverlap, yes, ParseSucceed),
   ( 
     ParseSucceed = yes,
     Success = yes,
@@ -29,85 +29,72 @@ part1(List, Out, IDMapOut, Success) :-
     Out = "FAIL"
   ).
 
-:- pred do_per_line(string::in, map({int,int},fabric)::in, map({int,int},fabric)::out, bool::in, bool::out, int::in, int::out, map(int,bool)::in, map(int,bool)::out) is cc_multi.
-do_per_line(String, MapIn, MapOut, BoolIn, BoolOut, TOIn, TOOut, IDMapIn, IDMapOut) :-
+:- pred do_per_line(string::in, map({int,int},fabric)::in, map({int,int},fabric)::out, map(int,bool)::in, map(int,bool)::out, int::in, int::out, bool::in, bool::out) is cc_multi.
+do_per_line(String, !Map, !IDMap, !TotalOverlap, !Success) :-
   ( 
-    BoolIn = no,
-    MapIn = MapOut,
-    TOIn = TOOut,
-    IDMapIn = IDMapOut,
-    BoolOut = no
+    !.Success = no,
+    !:Success = no
   ;
-    BoolIn = yes,
-    parse_line(String, Tuple, Success),
+    !.Success = yes,
+    parse_line(String, Tuple, LineSuccess),
     (
-      Success = no,
-      MapIn = MapOut,
-      TOIn = TOOut,
-      IDMapIn = IDMapOut,
-      BoolOut = no
+      LineSuccess = no,
+      !:Success = no
     ;
-      Success = yes,
+      LineSuccess = yes,
       Tuple = {ID,X,Y,W,H},
       XMax = X + W,
       YMax = Y + H,
-      nested_for_loop(ID, X, X, XMax, Y, YMax, MapIn, MapOut, TOIn, TOOut, IDMapIn, IDMapOut),
-      BoolOut = yes
+      nested_for_loop(ID, X, X, XMax, Y, YMax, !Map, !IDMap, !TotalOverlap),
+      !:Success = yes
     )
   ).
 
 % ranges module isnt working; would've loved to just foldl over range
-:- pred nested_for_loop(int::in, int::in, int::in, int::in, int::in, int::in, map({int,int},fabric)::in, map({int,int},fabric)::out, int::in, int::out, map(int,bool)::in, map(int,bool)::out) is multi.
-nested_for_loop(ID, XBase, X, XMax, Y, YMax, MapIn, MapOut, TOIn, TOOut, IDMapIn, IDMapOut) :-
+:- pred nested_for_loop(int::in, int::in, int::in, int::in, int::in, int::in, map({int,int},fabric)::in, map({int,int},fabric)::out, map(int,bool)::in, map(int,bool)::out, int::in, int::out) is multi.
+nested_for_loop(ID, XBase, X, XMax, Y, YMax, !Map, !IDMap, !TotalOverlap) :-
   ( 
     % end of both loops
-    Y = YMax,
-    MapIn = MapOut,
-    IDMapIn = IDMapOut,
-    TOIn = TOOut
+    Y = YMax
   ;
     (
       % end of x loop, repeat
       X = XMax,
       YNew = Y + 1,
-      nested_for_loop(ID, XBase, XBase, XMax, YNew, YMax, MapIn, MapOut, TOIn, TOOut, IDMapIn, IDMapOut)
+      nested_for_loop(ID, XBase, XBase, XMax, YNew, YMax, !Map, !IDMap, !TotalOverlap)
     ;
-      update_maps(ID, {X,Y}, MapIn, Map, IDMapIn, IDMap, TOIn, TONew),
+      update_maps(ID, {X,Y}, !.Map, NewMap, !.IDMap, NewIDMap, !.TotalOverlap, TONew),
       XNew = X + 1,
-      nested_for_loop(ID, XBase, XNew, XMax, Y, YMax, Map, MapOut, TONew, TOOut, IDMap, IDMapOut)
+      nested_for_loop(ID, XBase, XNew, XMax, Y, YMax, NewMap, !:Map, NewIDMap, !:IDMap, TONew, !:TotalOverlap)
     )
   ).
 
 :- pred update_maps(int::in, {int,int}::in, map({int,int},fabric)::in, map({int,int},fabric)::out, map(int,bool)::in, map(int,bool)::out, int::in, int::out) is det.
-update_maps(ID, Coord, MapIn, MapOut, IDMapIn, IDMapOut, TOIn, TOOut) :-
-  ( if map.search(MapIn, Coord, Value) then
+update_maps(ID, Coord, !Map, !IDMap, !TotalOverlap) :-
+  ( if map.search(!.Map, Coord, Value) then
     (
       % first time overlap
       Value = id(ID2),
-      TOOut = TOIn + 1,
-      map.det_update(Coord, overlap, MapIn, MapOut),
-      update_id_map(ID, IDMapIn, IDMap1),
-      update_id_map(ID2, IDMap1, IDMapOut)
+      !:TotalOverlap = !.TotalOverlap + 1,
+      map.det_update(Coord, overlap, !Map),
+      update_id_map(ID, !.IDMap, IDMap1),
+      update_id_map(ID2, IDMap1, !:IDMap)
     ;
       % has already overlapped
       Value = overlap,
-      TOOut = TOIn,
-      MapOut = MapIn,
-      update_id_map(ID, IDMapIn, IDMapOut)
+      update_id_map(ID, !IDMap)
     )
   else
     % new in map
-    map.det_insert(Coord, id(ID), MapIn, MapOut),
-    IDMapIn = IDMapOut,
-    TOOut = TOIn
+    map.det_insert(Coord, id(ID), !Map)
   ).
 
 :- pred update_id_map(int::in, map(int,bool)::in, map(int,bool)::out) is det.
-update_id_map(ID, MapIn, MapOut) :-
-  ( if map.contains(MapIn, ID) then
-    MapIn = MapOut
+update_id_map(ID, !Map) :-
+  ( if map.contains(!.Map, ID) then
+    !.Map = !:Map
   else
-    map.det_insert(ID, yes, MapIn, MapOut)
+    map.det_insert(ID, yes, !Map)
   ).
 
 % tuple: id, x, y, w, h
