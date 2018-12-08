@@ -119,8 +119,8 @@ func parseInput(input []string) []*node {
 	parseMap := map[rune]*node{}
 	possibleRoots := map[rune]struct{}{}
 	for _, s := range input {
-		split := strings.Split(s, " ")
-		prereq, id := rune(split[1][0]), rune(split[7][0])
+		var prereq, id rune
+		fmt.Sscanf(s, "Step %c must be finished before step %c can begin.", &prereq, &id)
 		possibleRoots[prereq] = struct{}{}
 		n, ok := parseMap[id]
 		if !ok {
