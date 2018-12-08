@@ -27,6 +27,12 @@ func part2(input []int) (output []int, answer int) {
 	numChildren := input[0]
 	numMetadata := input[1]
 	tail := input[2:]
+	if numChildren == 0 {
+		for i := 0; i < numMetadata; i++ {
+			answer += tail[i]
+		}
+		return tail[numMetadata:], answer
+	}
 	childValues := map[int]int{}
 	for i := 0; i < numChildren; i++ {
 		t, ans := part2(tail)
@@ -35,10 +41,6 @@ func part2(input []int) (output []int, answer int) {
 	}
 	for i := 0; i < numMetadata; i++ {
 		m := tail[i]
-		if numChildren == 0 {
-			answer += m
-			continue
-		}
 		if m > numChildren {
 			continue
 		}
