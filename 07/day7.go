@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"io/ioutil"
+	"math"
 	"sort"
 	"strings"
 )
@@ -52,16 +53,20 @@ func part2(nodes []*node, workers []*worker, minute int) int {
 			}
 		}
 		if allIdle {
-			return minute - 1
+			return minute
 		}
 	}
 
 	// check workers are done
+	nextMinute := math.MaxInt64
 	idleWorkers := []*worker{}
 	for _, w := range workers {
 		if w.idle() {
 			idleWorkers = append(idleWorkers, w)
 			continue
+		}
+		if w.minDone < nextMinute {
+			nextMinute = w.minDone
 		}
 		if w.minDone == minute {
 			nodes = updatePreReqs(w.node, nodes)
@@ -79,8 +84,11 @@ func part2(nodes []*node, workers []*worker, minute int) int {
 		nodes = tail
 		w.node = work
 		w.minDone = minute + int(work.id-64) + 60
+		if w.minDone < nextMinute {
+			nextMinute = w.minDone
+		}
 	}
-	return part2(nodes, workers, minute+1)
+	return part2(nodes, workers, nextMinute)
 }
 
 func (n *node) removeFromPreReqs(id rune) (isEmpty bool) {
