@@ -46,18 +46,18 @@ xloop(Coordinates, {X,Y}, Xrange, Yrange, !SizeMap, NumSafe) :-
 	( if X = Xmax then
 		NumSafe = 0
 	else
-		xloop(Coordinates, {X+1,Y}, Xrange, Yrange, !SizeMap, PrevSafe),
-		list.foldl5(coordinate_loop({X,Y}), Coordinates, 0, _, 0, Sum, 0, _, 0, Closest, 0, NumClosest),
+		xloop(Coordinates, {X+1,Y}, Xrange, Yrange, !.SizeMap, Map, PrevSafe),
+		list.foldl5(coordinate_loop({X,Y}), Coordinates, 0, _, 0, Sum, int.max_int, _, 0, Closest, 0, NumClosest),
 		( if Sum < 10000 then
 			NumSafe = PrevSafe + 1
 		else
 			NumSafe = PrevSafe
 		),
-		update_map(!SizeMap, Closest, NumClosest, {X,Y}, Xrange, Yrange)
+		update_map(Map, !:SizeMap, Closest, NumClosest, {X,Y}, Xrange, Yrange)
 	).
 
-coordinate_loop({X,Y}, Coord, !ID, !Safe, !Distance, !Closest, !NumClosest) :-
-	manhattan({X,Y}, Coord, M),
+coordinate_loop(C1, C2, !ID, !Safe, !Distance, !Closest, !NumClosest) :-
+	manhattan(C1, C2, M),
 	!:Safe = !.Safe + M,
 	!:ID = !.ID + 1,
 	( if M < !.Distance then
