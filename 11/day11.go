@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"math"
+	"time"
 )
 
 const maxSize = 300
@@ -73,17 +74,42 @@ type ans struct {
 }
 
 func part2(serial int) (coord, int) {
-	ch := make(chan ans, 1)
+	var ans coord
+	var ansSize int
+	max := math.MinInt64
 	for size := 1; size <= maxSize; size++ {
-		go func(s int) {
-			c, power := maxPower(s, serial)
-			ch <- ans{c, s, power}
-		}(size)
+		c, power := maxPower(size, serial)
+		if power > max {
+			max = power
+			ans = c
+			ansSize = size
+		}
 	}
+	return ans, ansSize
+}
+
+func part2_parallel(serial int) (coord, int) {
+	numWorkers := 10
+	inCh := make(chan int, numWorkers)
+	outCh := make(chan ans, maxSize)
+	defer close(outCh)
+	for i := 0; i < numWorkers; i++ {
+		go func(in chan int, out chan ans) {
+			for size := range in {
+				c, power := maxPower(size, serial)
+				out <- ans{c, size, power}
+			}
+		}(inCh, outCh)
+	}
+
+	for i := 1; i <= maxSize; i++ {
+		inCh <- i
+	}
+	close(inCh)
 
 	ansSoFar := ans{size: 0, power: math.MinInt64}
 	for i := 1; i <= maxSize; i++ {
-		answer := <-ch
+		answer := <-outCh
 		if answer.power > ansSoFar.power {
 			ansSoFar = answer
 		}
@@ -96,6 +122,13 @@ func main() {
 	ans1 := part1(input)
 	fmt.Printf("Part 1: %d,%d\n", ans1.x, ans1.y)
 
+	start := time.Now()
 	ans2, size := part2(input)
-	fmt.Printf("Part 2: %d,%d,%d\n", ans2.x, ans2.y, size)
+	took := time.Now().Sub(start)
+	fmt.Printf("Part 2: %d,%d,%d ; took %s\n", ans2.x, ans2.y, size, took.String())
+
+	start = time.Now()
+	ans2, size = part2_parallel(input)
+	took = time.Now().Sub(start)
+	fmt.Printf("Bonus : %d,%d,%d ; took %s\n", ans2.x, ans2.y, size, took.String())
 }
