@@ -9,19 +9,13 @@ type coord struct {
 	x, y int
 }
 
-var memoize = map[coord]int{}
-
 func powerLevel(c coord, serial int) int {
-	if v, ok := memoize[c]; ok {
-		return v
-	}
 	rackID := c.x + 10
 	p := rackID * c.y
 	p += serial
 	p *= rackID
 	p = (p / 100) % 10
 	p -= 5
-	memoize[c] = p
 	return p
 }
 
@@ -57,22 +51,29 @@ func part1(serial int) coord {
 	return c
 }
 
+type ans struct {
+	c     coord
+	size  int
+	power int
+}
+
 func part2(serial int) (coord, int) {
-	var maxSize int
-	var ans coord
-	max := math.MinInt64
+	ch := make(chan ans, 1)
 	for size := 1; size <= 300; size++ {
-		c, power := maxPower(size, serial)
-		if power < 0 {
-			break
-		}
-		if power > max {
-			max = power
-			maxSize = size
-			ans = c
+		go func(s int) {
+			c, power := maxPower(size, serial)
+			ch <- ans{c, s, power}
+		}(size)
+	}
+
+	ansSoFar := ans{size: 0, power: math.MinInt64}
+	for size := 1; size <= 300; size++ {
+		answer := <-ch
+		if answer.power > ansSoFar.power {
+			ansSoFar = answer
 		}
 	}
-	return ans, maxSize
+	return ansSoFar.c, ansSoFar.size
 }
 
 func main() {
