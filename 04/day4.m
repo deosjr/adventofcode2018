@@ -185,10 +185,10 @@ main(!IO) :-
             Success = yes,
             aggregate_data(list.sort(Parsed), TotalSleepMap, MinsPerGuardMap),
             part1(TotalSleepMap, MinsPerGuardMap, Out1),
-            S1 = string.format("Part1: %i\n", [i(Out1)]),
+            S1 = string.format("Part 1: %i\n", [i(Out1)]),
             io.write_string(S1, !IO),
             part2(MinsPerGuardMap, Out2),
-            S2 = string.format("Part2: %i\n", [i(Out2)]),
+            S2 = string.format("Part 2: %i\n", [i(Out2)]),
             io.write_string(S2, !IO)
            ;
             Success = no,

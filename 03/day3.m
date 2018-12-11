@@ -170,14 +170,14 @@ main(!IO) :-
            part1(List, Out1, IDMap, Success),
            (
             Success = yes,
-            S1 = string.format("Part1: %s\n", [s(Out1)]),
+            S1 = string.format("Part 1: %s\n", [s(Out1)]),
             io.write_string(S1, !IO),
             Len = list.length(List),
             Limit = Len + 1,
             part2(IDMap, 1, Limit, Out2, Success2),
             (
               Success2 = yes,
-              S2 = string.format("Part2: %i\n", [i(Out2)]),
+              S2 = string.format("Part 2: %i\n", [i(Out2)]),
               io.write_string(S2, !IO)
             ;
               Success2 = no,

@@ -128,13 +128,13 @@ main(!IO) :-
         max_value(Map, MaxSize),
         ( 
         	MaxSize = infinite,
-        	io.write_string("Part1: no non-infinite areas found!\n", !IO)
+        	io.write_string("Part 1: no non-infinite areas found!\n", !IO)
         ;
         	MaxSize = s(N),
-        	S1 = string.format("Part1: %i\n", [i(N)]),
+        	S1 = string.format("Part 1: %i\n", [i(N)]),
         	io.write_string(S1, !IO)
         ),
-        S2 = string.format("Part2: %i\n", [i(Safe)]),
+        S2 = string.format("Part 2: %i\n", [i(Safe)]),
         io.write_string(S2, !IO)
       ;
         ReadResult = error(_, IO_Error),

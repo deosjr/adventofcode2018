@@ -138,9 +138,9 @@ main(!IO) :-
            ReadResult = ok(FileContents),
            string.split_at_string("\n", FileContents) = List,
            part1(List, Out1),
-           io.write_string("Part1: " ++ Out1 ++ "\n", !IO),
+           io.write_string("Part 1: " ++ Out1 ++ "\n", !IO),
            part2(List, Out2),
-           io.write_string("Part2: " ++ Out2 ++ "\n", !IO)
+           io.write_string("Part 2: " ++ Out2 ++ "\n", !IO)
       ;
            ReadResult = error(_, IO_Error),
            io.stderr_stream(Stderr, !IO),

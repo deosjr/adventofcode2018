@@ -60,9 +60,9 @@ main(!IO) :-
         (if parse(List, Roots, PreReqs, Children) then
 	        Out1 = 42, % TODO
 	        Out2 = 42, % TODO
-	        S1 = string.format("Part1: %i\n", [i(Out1)]),
+	        S1 = string.format("Part 1: %i\n", [i(Out1)]),
 	        io.write_string(S1, !IO),
-	        S2 = string.format("Part2: %i\n", [i(Out2)]),
+	        S2 = string.format("Part 2: %i\n", [i(Out2)]),
 	        io.write_string(S2, !IO)
 	    else
 	    	io.write_string("Parse failed\n", !IO)
