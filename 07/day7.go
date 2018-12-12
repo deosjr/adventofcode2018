@@ -43,20 +43,6 @@ func (w worker) idle() bool {
 }
 
 func part2(nodes []*node, workers []*worker, minute int) int {
-	// we are done if all workers are done and there is no more work
-	if len(nodes) == 0 {
-		allIdle := true
-		for _, w := range workers {
-			if !w.idle() {
-				allIdle = false
-				break
-			}
-		}
-		if allIdle {
-			return minute
-		}
-	}
-
 	// check workers are done
 	nextMinute := math.MaxInt64
 	idleWorkers := []*worker{}
@@ -65,13 +51,14 @@ func part2(nodes []*node, workers []*worker, minute int) int {
 			idleWorkers = append(idleWorkers, w)
 			continue
 		}
-		if w.minDone < nextMinute {
-			nextMinute = w.minDone
-		}
 		if w.minDone == minute {
 			nodes = updatePreReqs(w.node, nodes)
 			w.node = nil
 			idleWorkers = append(idleWorkers, w)
+			continue
+		}
+		if w.minDone < nextMinute {
+			nextMinute = w.minDone
 		}
 	}
 
@@ -87,6 +74,11 @@ func part2(nodes []*node, workers []*worker, minute int) int {
 		if w.minDone < nextMinute {
 			nextMinute = w.minDone
 		}
+	}
+
+	// last piece of work completed
+	if nextMinute == math.MaxInt64 {
+		return minute
 	}
 	return part2(nodes, workers, nextMinute)
 }
