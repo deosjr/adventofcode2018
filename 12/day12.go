@@ -10,6 +10,7 @@ import (
 type state struct {
 	plants   map[int]bool
 	min, max int
+	shiftSum int
 }
 
 func parse(input string) (state, map[int]bool) {
@@ -26,16 +27,15 @@ func parse(input string) (state, map[int]bool) {
 	for _, s := range splitinput[2:] {
 		// form is: [#.]{5} => [#.]
 		sum := 0
-		for i := 4; i >= 0; i-- {
+		for i := 0; i < 5; i++ {
 			if s[i] == '#' {
-				sum += int(math.Exp2(float64(-i + 4)))
+				sum += int(math.Exp2(float64(i)))
 			}
 		}
 		if s[9] == '#' {
 			transitions[sum] = true
 		}
 	}
-
 	initState := state{
 		plants: initPlants,
 		min:    0,
@@ -44,46 +44,71 @@ func parse(input string) (state, map[int]bool) {
 	return initState, transitions
 }
 
-func part1(s state, transitions map[int]bool) int {
-	for i := 0; i < 20; i++ {
-		s = generation(s, transitions)
+func generations(s state, transitions map[int]bool, g int) int {
+	var genSimulated int
+	// simulate until pattern no longer changes, only shifts
+	for genSimulated = 0; genSimulated < g; genSimulated++ {
+		newState := generation(s, transitions)
+		if s.shiftSum == newState.shiftSum {
+			break
+		}
+		s = newState
 	}
+
+	// include shifts in sum
+	// assumption: pattern shifts by one every generation from now
+	genRemaining := g - genSimulated
 	sum := 0
 	for k, _ := range s.plants {
-		sum += k
+		sum += k + genRemaining
 	}
 	return sum
 }
 
-// start from ....# which is two left of the leftmost plant
-// then loop over all pots until two right of rightmost plant
-// calculate neighbourhood by using bitshift
 func generation(s state, transitions map[int]bool) state {
 	newPlants := map[int]bool{}
-	neighbourhood := 1
 	min := s.max
 	max := s.min
-	for i := s.min - 2; i <= s.max+2; i++ {
-		if i != s.min-2 {
-			if neighbourhood >= 16 {
-				neighbourhood -= 16
+	checked := map[int]struct{}{}
+	for k, _ := range s.plants {
+		for i := k - 2; i <= k+2; i++ {
+			if _, ok := checked[i]; ok {
+				continue
 			}
-			neighbourhood *= 2
-			if s.plants[i+2] {
-				neighbourhood++
-			}
-		}
-		if transitions[neighbourhood] {
-			newPlants[i] = true
-			if i < min {
-				min = i
-			}
-			if i > max {
-				max = i
+			checked[i] = struct{}{}
+			if plantAt(i, s.plants, transitions) {
+				newPlants[i] = true
+				if i < min {
+					min = i
+				} else if i > max {
+					max = i
+				}
 			}
 		}
 	}
-	return state{min: min, max: max, plants: newPlants}
+
+	shiftSum := 0
+	for k, _ := range newPlants {
+		shiftSum += k - min
+	}
+
+	newState := state{
+		plants:   newPlants,
+		min:      min,
+		max:      max,
+		shiftSum: shiftSum,
+	}
+	return newState
+}
+
+func plantAt(index int, plants, transitions map[int]bool) bool {
+	neighbourhood := 0
+	for i := 0; i < 5; i++ {
+		if plants[index-2+i] {
+			neighbourhood += int(math.Exp2(float64(i)))
+		}
+	}
+	return transitions[neighbourhood]
 }
 
 func main() {
@@ -92,6 +117,8 @@ func main() {
 		panic(err)
 	}
 	initial, transitions := parse(string(input))
-	out := part1(initial, transitions)
-	fmt.Printf("Part 1: %d\n", out)
+	part1 := generations(initial, transitions, 20)
+	fmt.Printf("Part 1: %d\n", part1)
+	part2 := generations(initial, transitions, 50000000000)
+	fmt.Printf("Part 2: %d\n", part2)
 }
