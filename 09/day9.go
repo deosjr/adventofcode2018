@@ -17,10 +17,9 @@ func marbleGame(numPlayers, numMarbles int) int {
 	current.counterclockwise = current
 
 	scores := map[int]int{}
-	player := 0
 	for n := 1; n <= numMarbles; n++ {
 		if n%23 == 0 {
-			playerId := player + 1
+			playerId := ((n - 1) % numPlayers) + 1
 			scores[playerId] += n
 			for i := 0; i < 6; i++ {
 				current = current.counterclockwise
@@ -32,8 +31,6 @@ func marbleGame(numPlayers, numMarbles int) int {
 			scores[playerId] += oneCounter.number
 			current.counterclockwise = twoCounter
 			twoCounter.clockwise = current
-
-			player = (player + 1) % numPlayers
 			continue
 		}
 		newMarble := &marble{number: n}
@@ -47,7 +44,6 @@ func marbleGame(numPlayers, numMarbles int) int {
 		newMarble.counterclockwise = oneClockwise
 
 		current = newMarble
-		player = (player + 1) % numPlayers
 	}
 	max := 0
 	for _, v := range scores {
