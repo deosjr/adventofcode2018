@@ -247,11 +247,18 @@ func TestMoves(t *testing.T) {
 					#.......#
 					#########`,
 		},
+		{
+			input: `E..#....E
+					##..G####`,
+			want: `.E.#...E.
+					##.G.####`,
+		},
 	} {
 		in := strings.Replace(tt.input, "\t", "", -1)
 		game := parse(in)
 		round(game)
-		got := game.testPrint(9, 9, false)
+		split := strings.Split(in, "\n")
+		got := game.testPrint(len(split[0]), len(split), false)
 		want := strings.Replace(tt.want, "\t", "", -1)
 		if got != want {
 			t.Errorf("%d): \ngot \n%v\nwant \n%v\n", i, got, want)
@@ -325,6 +332,7 @@ func TestFloodFill(t *testing.T) {
 		wantFound  []coord
 		wantString string
 		wantFirst  coord
+		wantEnd    *coord
 	}{
 		{
 			input: `#####
@@ -473,6 +481,39 @@ func TestFloodFill(t *testing.T) {
 						#########`,
 			wantFirst: coord{1, 4},
 		},
+		{
+			input: `.G..
+					#..#
+					...E
+					E...`,
+			unit:      0,
+			wantFound: []coord{{2, 2}, {0, 2}, {1, 3}},
+			wantString: `1012
+						#12#
+						323E
+						E3..`,
+			wantFirst: coord{1, 1},
+			wantEnd:   &coord{0, 2},
+		},
+		{
+			input: `..G...#.##.#
+					#....GGE...#
+					#.......#..#
+					#..........#
+					#....E.....#
+					#...EGE.#..#
+					.E.........#`,
+			unit:      0,
+			wantFound: []coord{{1, 5}, {5, 3}, {4, 4}, {3, 5}, {2, 6}},
+			wantString: `210123#.##.#
+						#2123GGE...#
+						#323456.#..#
+						#43456.....#
+						#5456E.....#
+						#656EGE.#..#
+						.E6........#`,
+			wantFirst: coord{3, 0},
+		},
 	} {
 		in := strings.Replace(tt.input, "\t", "", -1)
 		game := parse(in)
@@ -501,6 +542,11 @@ func TestFloodFill(t *testing.T) {
 			continue
 		}
 		gotEnd := firstInReadingOrder(gotFound)
+		if tt.wantEnd != nil {
+			if gotEnd != *tt.wantEnd {
+				t.Errorf("%d): got %v want %v", i, gotEnd, *tt.wantEnd)
+			}
+		}
 		gotFirst := game.findFirstStep(gotEnd, gotMap)
 		if gotFirst != tt.wantFirst {
 			t.Errorf("%d): got %v want %v", i, gotFirst, tt.wantFirst)
