@@ -100,7 +100,7 @@ func round(game gameState) ([]Unit, bool) {
 		if _, ok := casualties[u]; ok {
 			continue
 		}
-		if game.combatOver(casualties) {
+		if game.noTargets(casualties) {
 			return nil, true
 		}
 		t := game.target(u)
@@ -222,24 +222,27 @@ func (game gameState) move(u Unit) {
 	game.step(u, first)
 }
 
+// find ALL shortest paths from end coord to start (score 0)
+// out of those shortest paths, take the first step at reading order
 func (game gameState) findFirstStep(end coord, ffm map[coord]int) coord {
 	length := ffm[end]
-	c := end
+	paths := map[int]map[coord]struct{}{length: map[coord]struct{}{end: {}}}
 	for i := length - 1; i > 0; i-- {
-		found := false
-		for _, adj := range game.adjacentEmptyCoords(c) {
-			if ffm[adj] == i {
-				// if multiple adjacent with same score
-				// pick the one in reading order
-				if found && order2d(c, adj) {
-					continue
+		prev := paths[i+1]
+		paths[i] = map[coord]struct{}{}
+		for p, _ := range prev {
+			for _, next := range game.adjacentEmptyCoords(p) {
+				if ffm[next] == i {
+					paths[i][next] = struct{}{}
 				}
-				found = true
-				c = adj
 			}
 		}
 	}
-	return c
+	firsts := []coord{}
+	for k, _ := range paths[1] {
+		firsts = append(firsts, k)
+	}
+	return firstInReadingOrder(firsts)
 }
 
 func (game gameState) step(u Unit, c coord) {
@@ -276,7 +279,7 @@ func (game gameState) target(u Unit) Unit {
 	return t
 }
 
-func (game gameState) combatOver(casualties map[Unit]struct{}) bool {
+func (game gameState) noTargets(casualties map[Unit]struct{}) bool {
 	var first Unit = nil
 	for _, u := range game.units {
 		if _, ok := casualties[u]; ok {
