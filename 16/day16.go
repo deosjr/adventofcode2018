@@ -51,12 +51,12 @@ func bori(r register, a, b, c int) register {
 }
 
 func setr(r register, a, b, c int) register {
-	r[c] = a
+	r[c] = r[a]
 	return r
 }
 
 func seti(r register, a, b, c int) register {
-	r[c] = r[a] * b
+	r[c] = a
 	return r
 }
 
@@ -114,10 +114,15 @@ func eqrr(r register, a, b, c int) register {
 	return r
 }
 
+type instruction struct {
+	opcode  int
+	a, b, c int
+}
+
 type sample struct {
-	before          register
-	opcode, a, b, c int
-	after           register
+	before      register
+	instruction instruction
+	after       register
 }
 
 func parseSamples(input string) []sample {
@@ -130,12 +135,9 @@ func parseSamples(input string) []sample {
 %d %d %d %d
 After:  [%d, %d, %d, %d]`, &b0, &b1, &b2, &b3, &i0, &i1, &i2, &i3, &a0, &a1, &a2, &a3)
 		s := sample{
-			before: [4]int{b0, b1, b2, b3},
-			opcode: i0,
-			a:      i1,
-			b:      i2,
-			c:      i3,
-			after:  [4]int{a0, a1, a2, a3},
+			before:      [4]int{b0, b1, b2, b3},
+			instruction: instruction{i0, i1, i2, i3},
+			after:       [4]int{a0, a1, a2, a3},
 		}
 		samples = append(samples, s)
 	}
@@ -148,7 +150,7 @@ func part1(samples []sample) int {
 	for _, s := range samples {
 		behavesLike := 0
 		for _, f := range opcodes {
-			after := f(s.before, s.a, s.b, s.c)
+			after := f(s.before, s.instruction.a, s.instruction.b, s.instruction.c)
 			if after == s.after {
 				behavesLike++
 			}
@@ -161,14 +163,66 @@ func part1(samples []sample) int {
 	return amount
 }
 
+func parseProgram(input string) []instruction {
+	split := strings.Split(input, "\n")
+	program := make([]instruction, len(split))
+	for i, s := range split {
+		var opcode, a, b, c int
+		fmt.Sscanf(s, "%d %d %d %d", &opcode, &a, &b, &c)
+		program[i] = instruction{opcode, a, b, c}
+	}
+	return program
+}
+
+func determineOpcodes(samples []sample) map[int]opcode {
+	opcodes := []opcode{addr, addi, mulr, muli, banr, bani, borr, bori, setr, seti, gtir, gtri, gtrr, eqir, eqri, eqrr}
+	found := map[int]struct{}{}
+	mapping := map[int]opcode{}
+	for len(mapping) < len(opcodes) {
+	Samples:
+		for _, s := range samples {
+			if _, ok := mapping[s.instruction.opcode]; ok {
+				continue
+			}
+			behavesLike := -1
+			for i, f := range opcodes {
+				if _, ok := found[i]; ok {
+					continue
+				}
+				after := f(s.before, s.instruction.a, s.instruction.b, s.instruction.c)
+				if after == s.after {
+					if behavesLike != -1 {
+						continue Samples
+					}
+					behavesLike = i
+				}
+			}
+			mapping[s.instruction.opcode] = opcodes[behavesLike]
+			found[behavesLike] = struct{}{}
+		}
+	}
+	return mapping
+}
+
+func part2(samples []sample, program []instruction) int {
+	opcodes := determineOpcodes(samples)
+	r := [4]int{0, 0, 0, 0}
+	for _, ins := range program {
+		f := opcodes[ins.opcode]
+		r = f(r, ins.a, ins.b, ins.c)
+	}
+	return r[0]
+}
+
 func main() {
 	input, err := ioutil.ReadFile("day16.input")
 	if err != nil {
 		panic(err)
 	}
 	twoParts := strings.Split(string(input), "\n\n\n\n")
-	part1input, _ := twoParts[0], twoParts[1]
+	part1input, part2input := twoParts[0], twoParts[1]
 	samples := parseSamples(part1input)
-	out1 := part1(samples)
-	fmt.Printf("Part 1: %d\n", out1)
+	fmt.Printf("Part 1: %d\n", part1(samples))
+	program := parseProgram(part2input)
+	fmt.Printf("Part 2: %d\n", part2(samples, program))
 }
