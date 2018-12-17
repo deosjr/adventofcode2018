@@ -106,7 +106,7 @@ func round(game gameState) ([]Unit, bool) {
 		t := game.target(u)
 		if t == nil {
 			// move
-			game.move(u)
+			game.move(u, casualties)
 
 			// retarget
 			t = game.target(u)
@@ -158,10 +158,13 @@ func (game gameState) adjacentEmptyCoords(p coord) []coord {
 	return coords
 }
 
-func (game gameState) possibleTargets(u Unit) map[coord]struct{} {
+func (game gameState) possibleTargets(u Unit, casualties map[Unit]struct{}) map[coord]struct{} {
 	targetCoords := map[coord]struct{}{}
 	for _, unit := range game.units {
 		if unit == u {
+			continue
+		}
+		if _, ok := casualties[unit]; ok {
 			continue
 		}
 		if !u.Enemy(unit) {
@@ -204,9 +207,9 @@ func (game gameState) floodFill(u Unit, targetCoords map[coord]struct{}) (found 
 	return found, floodFillMap
 }
 
-func (game gameState) move(u Unit) {
+func (game gameState) move(u Unit, casualties map[Unit]struct{}) {
 	// find possible target locations
-	targetCoords := game.possibleTargets(u)
+	targetCoords := game.possibleTargets(u, casualties)
 	if len(targetCoords) == 0 {
 		return
 	}

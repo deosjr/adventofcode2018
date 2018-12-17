@@ -314,7 +314,7 @@ func TestPossibleTargets(t *testing.T) {
 		in := strings.Replace(tt.input, "\t", "", -1)
 		game := parse(in)
 		unit := game.units[tt.unit]
-		got := game.possibleTargets(unit)
+		got := game.possibleTargets(unit, map[Unit]struct{}{})
 		wantMap := map[coord]struct{}{}
 		for _, k := range tt.want {
 			wantMap[k] = struct{}{}
@@ -518,7 +518,7 @@ func TestFloodFill(t *testing.T) {
 		in := strings.Replace(tt.input, "\t", "", -1)
 		game := parse(in)
 		unit := game.units[tt.unit]
-		gotFound, gotMap := game.floodFill(unit, game.possibleTargets(unit))
+		gotFound, gotMap := game.floodFill(unit, game.possibleTargets(unit, map[Unit]struct{}{}))
 		if !reflect.DeepEqual(gotFound, tt.wantFound) {
 			t.Errorf("%d): got %v want %v", i, gotFound, tt.wantFound)
 		}
@@ -667,6 +667,23 @@ func TestRoundWithCombat(t *testing.T) {
 					#######`,
 			setHP: map[int]int{0: 9, 1: 4, 3: 2, 4: 2, 5: 1},
 		},
+		{
+			input: `.G....#
+					GEG...#
+					.G.#..#
+					.....G#
+					.......
+					#.....G
+					......E`,
+			want: `.G....#   G(200)
+					...G..#   G(200)
+					G.G#..#   G(143), G(200)
+					......#
+					.....G.   G(200)
+					#.....G   G(197)
+					......E   E(182)`,
+			setHP: map[int]int{1: 143, 2: 2, 7: 185},
+		},
 	} {
 		in := strings.Replace(tt.input, "\t", "", -1)
 		game := parse(in)
@@ -679,7 +696,8 @@ func TestRoundWithCombat(t *testing.T) {
 			u.(*goblin).hp = v
 		}
 		round(game)
-		got := game.testPrint(7, 7, true)
+		split := strings.Split(in, "\n")
+		got := game.testPrint(len(split[0]), len(split), true)
 		want := strings.Replace(tt.want, "\t", "", -1)
 		if got != want {
 			t.Errorf("%d): \ngot \n%v\nwant \n%v\n", i, got, want)
