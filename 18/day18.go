@@ -35,11 +35,7 @@ func parse(input string) map[coord]acre {
 	return m
 }
 
-func part1(grid map[coord]acre) int {
-	// print(grid)
-	for minute := 0; minute < 10; minute++ {
-		grid = tick(grid)
-	}
+func resourceValue(grid map[coord]acre) int {
 	var wood, yards int
 	for _, v := range grid {
 		if v == wooded {
@@ -86,7 +82,9 @@ func tick(grid map[coord]acre) map[coord]acre {
 
 func neighbours(c coord, grid map[coord]acre) (int, int) {
 	var numWood, numYard int
-	ncs := []coord{{c.x - 1, c.y - 1}, {c.x, c.y - 1}, {c.x + 1, c.y - 1}, {c.x - 1, c.y}, {c.x + 1, c.y}, {c.x - 1, c.y + 1}, {c.x, c.y + 1}, {c.x + 1, c.y + 1}}
+	ncs := []coord{{c.x - 1, c.y - 1}, {c.x, c.y - 1}, {c.x + 1, c.y - 1},
+		{c.x - 1, c.y}, {c.x + 1, c.y},
+		{c.x - 1, c.y + 1}, {c.x, c.y + 1}, {c.x + 1, c.y + 1}}
 	for _, n := range ncs {
 		v, ok := grid[n]
 		if !ok {
@@ -102,20 +100,39 @@ func neighbours(c coord, grid map[coord]acre) (int, int) {
 	return numWood, numYard
 }
 
-func print(m map[coord]acre) {
+func part1(grid map[coord]acre) int {
+	for minute := 0; minute < 10; minute++ {
+		grid = tick(grid)
+	}
+	return resourceValue(grid)
+}
+
+func part2(grid map[coord]acre) int {
+	hashes := map[int]int{hash(grid): 0}
+	values := map[int]int{0: resourceValue(grid)}
+	minute := 0
+	for {
+		minute++
+		grid = tick(grid)
+		h := hash(grid)
+		if min, ok := hashes[h]; ok {
+			cycle := minute - min
+			left := (1000000000 - minute) % cycle
+			return values[min+left]
+		}
+		hashes[h] = minute
+		values[minute] = resourceValue(grid)
+	}
+}
+
+func hash(grid map[coord]acre) int {
+	sum := 0
 	for y := 0; y < 50; y++ {
 		for x := 0; x < 50; x++ {
-			switch m[coord{x, y}] {
-			case open:
-				fmt.Print(".")
-			case wooded:
-				fmt.Print("|")
-			case lumberyard:
-				fmt.Print("#")
-			}
+			sum += (y*100 + x) * int(grid[coord{x, y}])
 		}
-		fmt.Println()
 	}
+	return sum
 }
 
 func main() {
@@ -126,4 +143,6 @@ func main() {
 	grid := parse(string(input))
 	out := part1(grid)
 	fmt.Printf("Part 1: %d\n", out)
+	out = part2(grid)
+	fmt.Printf("Part 2: %d\n", out)
 }
