@@ -33,7 +33,7 @@ func (r *room) update(d int) {
 	}
 }
 
-func part1(input string) int {
+func explore(input string) map[coord]*room {
 	currentPos := coord{0, 0}
 	currentRoom := &room{distance: 0}
 	rooms := map[coord]*room{
@@ -79,6 +79,10 @@ func part1(input string) int {
 			currentRoom = rooms[currentPos]
 		}
 	}
+	return rooms
+}
+
+func part1(rooms map[coord]*room) int {
 	max := 0
 	for _, r := range rooms {
 		if r.distance > max {
@@ -86,6 +90,16 @@ func part1(input string) int {
 		}
 	}
 	return max
+}
+
+func part2(rooms map[coord]*room) int {
+	sum := 0
+	for _, r := range rooms {
+		if r.distance >= 1000 {
+			sum++
+		}
+	}
+	return sum
 }
 
 func newRoom(rooms map[coord]*room, currentRoom *room, newPos coord) *room {
@@ -108,6 +122,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	out := part1(string(input))
-	fmt.Printf("Part 1: %d\n", out)
+	rooms := explore(string(input))
+	fmt.Printf("Part 1: %d\n", part1(rooms))
+	fmt.Printf("Part 2: %d\n", part2(rooms))
 }
