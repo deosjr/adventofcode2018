@@ -8,59 +8,85 @@ import (
 
 type register [6]int
 
-type opcode func(register, int, int, int) register
+type opcode interface {
+	do(register, int, int, int) register
+	// used for bonus
+	translate(instr instruction, lineNumber int, instrPtr int) intermediateRepresentation
+}
 
-func addr(r register, a, b, c int) register {
+type addr struct{}
+
+func (addr) do(r register, a, b, c int) register {
 	r[c] = r[a] + r[b]
 	return r
 }
 
-func addi(r register, a, b, c int) register {
+type addi struct{}
+
+func (addi) do(r register, a, b, c int) register {
 	r[c] = r[a] + b
 	return r
 }
 
-func mulr(r register, a, b, c int) register {
+type mulr struct{}
+
+func (mulr) do(r register, a, b, c int) register {
 	r[c] = r[a] * r[b]
 	return r
 }
 
-func muli(r register, a, b, c int) register {
+type muli struct{}
+
+func (muli) do(r register, a, b, c int) register {
 	r[c] = r[a] * b
 	return r
 }
 
-func banr(r register, a, b, c int) register {
+type banr struct{}
+
+func (banr) do(r register, a, b, c int) register {
 	r[c] = r[a] & r[b]
 	return r
 }
 
-func bani(r register, a, b, c int) register {
+type bani struct{}
+
+func (bani) do(r register, a, b, c int) register {
 	r[c] = r[a] & b
 	return r
 }
 
-func borr(r register, a, b, c int) register {
+type borr struct{}
+
+func (borr) do(r register, a, b, c int) register {
 	r[c] = r[a] | r[b]
 	return r
 }
 
-func bori(r register, a, b, c int) register {
+type bori struct{}
+
+func (bori) do(r register, a, b, c int) register {
 	r[c] = r[a] | b
 	return r
 }
 
-func setr(r register, a, b, c int) register {
+type setr struct{}
+
+func (setr) do(r register, a, b, c int) register {
 	r[c] = r[a]
 	return r
 }
 
-func seti(r register, a, b, c int) register {
+type seti struct{}
+
+func (seti) do(r register, a, b, c int) register {
 	r[c] = a
 	return r
 }
 
-func gtir(r register, a, b, c int) register {
+type gtir struct{}
+
+func (gtir) do(r register, a, b, c int) register {
 	if a > r[b] {
 		r[c] = 1
 		return r
@@ -69,7 +95,9 @@ func gtir(r register, a, b, c int) register {
 	return r
 }
 
-func gtri(r register, a, b, c int) register {
+type gtri struct{}
+
+func (gtri) do(r register, a, b, c int) register {
 	if r[a] > b {
 		r[c] = 1
 		return r
@@ -78,7 +106,9 @@ func gtri(r register, a, b, c int) register {
 	return r
 }
 
-func gtrr(r register, a, b, c int) register {
+type gtrr struct{}
+
+func (gtrr) do(r register, a, b, c int) register {
 	if r[a] > r[b] {
 		r[c] = 1
 		return r
@@ -87,7 +117,9 @@ func gtrr(r register, a, b, c int) register {
 	return r
 }
 
-func eqir(r register, a, b, c int) register {
+type eqir struct{}
+
+func (eqir) do(r register, a, b, c int) register {
 	if a == r[b] {
 		r[c] = 1
 		return r
@@ -96,7 +128,9 @@ func eqir(r register, a, b, c int) register {
 	return r
 }
 
-func eqri(r register, a, b, c int) register {
+type eqri struct{}
+
+func (eqri) do(r register, a, b, c int) register {
 	if r[a] == b {
 		r[c] = 1
 		return r
@@ -105,7 +139,9 @@ func eqri(r register, a, b, c int) register {
 	return r
 }
 
-func eqrr(r register, a, b, c int) register {
+type eqrr struct{}
+
+func (eqrr) do(r register, a, b, c int) register {
 	if r[a] == r[b] {
 		r[c] = 1
 		return r
@@ -119,9 +155,13 @@ type instruction struct {
 	a, b, c int
 }
 
-var opcodes = map[string]opcode{"addr": addr, "addi": addi, "mulr": mulr, "muli": muli,
-	"banr": banr, "bani": bani, "borr": borr, "bori": bori, "setr": setr, "seti": seti,
-	"gtir": gtir, "gtri": gtri, "gtrr": gtrr, "eqir": eqir, "eqri": eqri, "eqrr": eqrr}
+func (i instruction) execute(r register) register {
+	return i.opcode.do(r, i.a, i.b, i.c)
+}
+
+var opcodes = map[string]opcode{"addr": addr{}, "addi": addi{}, "mulr": mulr{}, "muli": muli{},
+	"banr": banr{}, "bani": bani{}, "borr": borr{}, "bori": bori{}, "setr": setr{}, "seti": seti{},
+	"gtir": gtir{}, "gtri": gtri{}, "gtrr": gtrr{}, "eqir": eqir{}, "eqri": eqri{}, "eqrr": eqrr{}}
 
 func parse(input string) (int, []instruction) {
 	split := strings.Split(input, "\n")
@@ -141,27 +181,17 @@ func part1(insPtr int, program []instruction) int {
 	var r register
 	for r[insPtr] >= 0 && r[insPtr] < len(program) {
 		ins := program[r[insPtr]]
-		r = ins.opcode(r, ins.a, ins.b, ins.c)
+		r = ins.execute(r)
 		r[insPtr] = r[insPtr] + 1
 	}
 	return r[0]
 }
 
-func part2(insPtr int, program []instruction) int {
-	r := [6]int{1, 0, 0, 0, 0, 0}
-	for r[insPtr] >= 0 && r[insPtr] < len(program) {
-		ins := program[r[insPtr]]
-		r = ins.opcode(r, ins.a, ins.b, ins.c)
-		r[insPtr] = r[insPtr] + 1
-	}
-	return r[0]
-}
-
-// running part2 will take an insane amount of time
+// running part2 like part 1 will take an insane amount of time
 // it spends most of its time in a loop
 // this is the loop part optimised and written in Go
-// (see annotated input file)
-func part2_interpreted(r2 int) int {
+// (see bonus for a code version)
+func part2(r2 int) int {
 	r0 := 0
 	for r1 := 1; r1 <= r2; r1++ {
 		if r2%r1 == 0 {
@@ -179,8 +209,6 @@ func main() {
 	insPtr, program := parse(string(input))
 	reg0 := part1(insPtr, program)
 	fmt.Printf("Part 1: %d\n", reg0)
-
-	// reg0 = part2(insPtr, program)
-	// fmt.Printf("Part 2: %d\n", reg0)
-	fmt.Printf("Part 2: %d\n", part2_interpreted(10551376))
+	fmt.Printf("Part 2: %d\n", part2(10551376))
+	fmt.Printf("Bonus: %s\n", bonus(insPtr, program))
 }
