@@ -43,10 +43,7 @@ func (addr) translate(instr instruction, lineNumber, insPtr int) intermediateRep
 }
 
 func (addi) translate(instr instruction, lineNumber, insPtr int) intermediateRepresentation {
-	if instr.a != instr.c {
-		panic("unimplemented")
-	}
-	if instr.c == insPtr {
+	if instr.a == insPtr && instr.c == insPtr {
 		return goTo{lineNumber + 1 + instr.b}
 	}
 	return assignment{
@@ -78,19 +75,43 @@ func (muli) translate(instr instruction, lineNumber, insPtr int) intermediateRep
 }
 
 func (banr) translate(instr instruction, lineNumber, insPtr int) intermediateRepresentation {
-	panic("unimplemented")
+	if instr.c == insPtr {
+		panic("unimplemented")
+	}
+	return assignment{
+		assignee: r{instr.c},
+		value:    op{"&", r{instr.a}, r{instr.b}},
+	}
 }
 
 func (bani) translate(instr instruction, lineNumber, insPtr int) intermediateRepresentation {
-	panic("unimplemented")
+	if instr.c == insPtr {
+		panic("unimplemented")
+	}
+	return assignment{
+		assignee: r{instr.c},
+		value:    op{"&", r{instr.a}, v{instr.b}},
+	}
 }
 
 func (borr) translate(instr instruction, lineNumber, insPtr int) intermediateRepresentation {
-	panic("unimplemented")
+	if instr.c == insPtr {
+		panic("unimplemented")
+	}
+	return assignment{
+		assignee: r{instr.c},
+		value:    op{"|", r{instr.a}, r{instr.b}},
+	}
 }
 
 func (bori) translate(instr instruction, lineNumber, insPtr int) intermediateRepresentation {
-	panic("unimplemented")
+	if instr.c == insPtr {
+		panic("unimplemented")
+	}
+	return assignment{
+		assignee: r{instr.c},
+		value:    op{"|", r{instr.a}, v{instr.b}},
+	}
 }
 
 func (setr) translate(instr instruction, lineNumber, insPtr int) intermediateRepresentation {
@@ -114,11 +135,23 @@ func (seti) translate(instr instruction, lineNumber, insPtr int) intermediateRep
 }
 
 func (gtir) translate(instr instruction, lineNumber, insPtr int) intermediateRepresentation {
-	panic("unimplemented")
+	if instr.c == insPtr {
+		panic("unimplemented")
+	}
+	return comparison{
+		cond: op{">", v{instr.a}, r{instr.b}},
+		r:    r{instr.c},
+	}
 }
 
 func (gtri) translate(instr instruction, lineNumber, insPtr int) intermediateRepresentation {
-	panic("unimplemented")
+	if instr.c == insPtr {
+		panic("unimplemented")
+	}
+	return comparison{
+		cond: op{">", r{instr.a}, v{instr.b}},
+		r:    r{instr.c},
+	}
 }
 
 func (gtrr) translate(instr instruction, lineNumber, insPtr int) intermediateRepresentation {
@@ -132,7 +165,13 @@ func (gtrr) translate(instr instruction, lineNumber, insPtr int) intermediateRep
 }
 
 func (eqir) translate(instr instruction, lineNumber, insPtr int) intermediateRepresentation {
-	panic("unimplemented")
+	if instr.c == insPtr {
+		panic("unimplemented")
+	}
+	return comparison{
+		cond: op{"==", v{instr.a}, r{instr.b}},
+		r:    r{instr.c},
+	}
 }
 
 func (eqri) translate(instr instruction, lineNumber, insPtr int) intermediateRepresentation {
@@ -433,8 +472,8 @@ func ifelsePattern(irlist []intermediateRepresentation, insPtr int) ([]intermedi
 		}
 		newIR := ifGotos{
 			cond:  c.cond,
-			ifg:   updateGoto(goTo{line + 3}, line, -2),
-			elseg: updateGoto(g, line, -2),
+			ifg:   goTo{line + 3},
+			elseg: g,
 		}
 		return updateList(newIR, irlist, line, 2), true
 	}
@@ -567,17 +606,17 @@ ListLoop:
 
 func updateList(ir intermediateRepresentation, irlist []intermediateRepresentation, line, toDelete int) []intermediateRepresentation {
 	newList := make([]intermediateRepresentation, len(irlist)-toDelete)
-	for i, v := range updateGotos(irlist[:line], line, -toDelete) {
+	for i, v := range irlist[:line] {
 		newList[i] = v
 	}
 	newList[line] = ir
 	if line == len(irlist)-1-toDelete {
-		return newList
+		return updateGotos(newList, line, -toDelete)
 	}
-	for i, v := range updateGotos(irlist[line+1+toDelete:], line, -toDelete) {
+	for i, v := range irlist[line+1+toDelete:] {
 		newList[i+line+1] = v
 	}
-	return newList
+	return updateGotos(newList, line, -toDelete)
 }
 
 func updateGotos(irlist []intermediateRepresentation, line, n int) []intermediateRepresentation {
@@ -594,6 +633,14 @@ func updateGotos(irlist []intermediateRepresentation, line, n int) []intermediat
 				cond:  ifgotos.cond,
 				ifg:   updateGoto(ifgotos.ifg, line, n),
 				elseg: updateGoto(ifgotos.elseg, line, n),
+			}
+			continue
+		}
+		ifst, ok := ir.(ifstatement)
+		if ok {
+			newList[i] = ifstatement{
+				cond: ifst.cond,
+				irs:  updateGotos(ifst.irs, line, n),
 			}
 			continue
 		}

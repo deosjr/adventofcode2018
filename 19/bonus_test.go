@@ -125,6 +125,18 @@ func TestSingleIf(t *testing.T) {
 			},
 			ptr: 0,
 		},
+		{
+			list: []intermediateRepresentation{
+				ifGotos{cond: op{operator: "==", x: r{}, y: r{}}, ifg: goTo{1}, elseg: goTo{2}},
+				goTo{lineNumber: 10},
+			},
+			want: []intermediateRepresentation{
+				ifstatement{cond: op{operator: "==", x: r{}, y: r{}}, irs: []intermediateRepresentation{
+					goTo{lineNumber: 9},
+				}},
+			},
+			ptr: 0,
+		},
 	} {
 		got, _ := singleIf(tt.list, tt.ptr)
 		if !reflect.DeepEqual(got, tt.want) {
@@ -156,6 +168,7 @@ func TestDoWhile(t *testing.T) {
 			},
 			ptr: 0,
 		},
+		// TODO: fix this test?
 		{
 			list: []intermediateRepresentation{
 				goTo{2}, // goto to inside dowhile is a problem!!
