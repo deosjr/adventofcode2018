@@ -1,6 +1,7 @@
 package main
 
 import (
+	"container/heap"
 	"fmt"
 	"io/ioutil"
 	"math"
@@ -57,16 +58,13 @@ func regionType(erosion int) region {
 	return region(erosion % 3)
 }
 
-// naive solution sketch for part 2:
-// we start in state (0,0,torch) and win in (tx,ty,torch)
-// find the minimal path to winning state
-// each coord has two possible states
-// each regiontype can only cross into one other regiontype
-// ask every square to expand to its neighbours, starting at start
-// up to a certain point, say manhattan distance to target times 2
-// (naive upper bound).
+func part2(depth, tx, ty int) int {
+	erosion := map[coord]int{}
+	start := posTool{0, 0, torch}
+	goal := posTool{tx, ty, torch}
 
-// TODO: this first version is slowwww at ~50sec...
+	return findRoute(start, goal, erosion, depth)
+}
 
 type tool uint8
 
@@ -121,90 +119,48 @@ func regionTypePart2(m map[coord]int, depth int, pos, target coord) region {
 	return regionType(e)
 }
 
-func part2(depth, tx, ty int) int {
-	target := coord{tx, ty}
-	threshold := 2 * (tx + ty)
-	erosion := map[coord]int{}
-	m := map[posTool]int{
-		{0, 0, torch}: 0,
-	}
-	fringe := []posTool{{0, 0, torch}}
-	var currentPos posTool
-	for len(fringe) > 0 {
-		if len(fringe) == 1 {
-			currentPos = fringe[0]
-			fringe = nil
-		} else {
-			currentPos, fringe = fringe[0], fringe[1:]
-		}
-		explored := explore(m, erosion, depth, threshold, currentPos, target)
-		fringe = append(fringe, explored...)
-	}
-
-	min := math.MaxInt64
-	for _, t := range []tool{torch, climbingGear, neither} {
-		mins, ok := m[posTool{tx, ty, t}]
-		if !ok {
-			continue
-		}
-		if t != torch {
-			mins += 7
-		}
-		if mins < min {
-			min = mins
-		}
-	}
-	return min
-}
-
-// given a position, check all its von neumann neighbours
-// if we can travel there, compare travel times with tool needed for travel
-// - it hasnt been explored with this tool: set travel time with tool
-// - it has been explored with this tool: set travel time only if its lower
-// add it to new fringe if we updated the travel time only
-func explore(m map[posTool]int, erosion map[coord]int, depth, threshold int, current posTool, target coord) []posTool {
-	currentPos := coord{current.x, current.y}
-	targetPos := coord{target.x, target.y}
-	currentMins := m[current]
-	r := regionTypePart2(erosion, depth, currentPos, targetPos)
-
-	newFringe := []posTool{}
-	for _, n := range neighbours(currentPos) {
-		nr := regionTypePart2(erosion, depth, n, targetPos)
-		neededTool, ok := travel(r, nr, current.tool)
-		if !ok {
-			continue
-		}
-		npos := posTool{n.x, n.y, neededTool}
-		newMins := currentMins + 1
-		if neededTool != current.tool {
-			newMins += 7
-		}
-		if newMins > threshold {
-			continue
-		}
-		v, explored := m[npos]
-		if !explored {
-			m[npos] = newMins
-			newFringe = append(newFringe, npos)
-			continue
-		}
-		if v <= newMins {
-			continue
-		}
-		m[npos] = newMins
-		newFringe = append(newFringe, npos)
-	}
-	return newFringe
-}
-
-func neighbours(pos coord) []coord {
-	n := []coord{{pos.x + 1, pos.y}, {pos.x, pos.y + 1}}
+func neighbours(pt, goal posTool, erosion map[coord]int, depth int) []posTool {
+	pos := coord{pt.x, pt.y}
+	ncoord := []coord{{pos.x + 1, pos.y}, {pos.x, pos.y + 1}}
 	if pos.x != 0 {
-		n = append(n, coord{pos.x - 1, pos.y})
+		ncoord = append(ncoord, coord{pos.x - 1, pos.y})
 	}
 	if pos.y != 0 {
-		n = append(n, coord{pos.x, pos.y - 1})
+		ncoord = append(ncoord, coord{pos.x, pos.y - 1})
+	}
+
+	self := posTool{pt.x, pt.y, 0}
+	goalPos := coord{goal.x, goal.y}
+	r := regionTypePart2(erosion, depth, pos, goalPos)
+	switch r {
+	case rocky:
+		if pt.tool == torch {
+			self.tool = climbingGear
+		} else {
+			self.tool = torch
+		}
+	case wet:
+		if pt.tool == climbingGear {
+			self.tool = neither
+		} else {
+			self.tool = climbingGear
+		}
+	case narrow:
+		if pt.tool == torch {
+			self.tool = neither
+		} else {
+			self.tool = torch
+		}
+	}
+
+	n := []posTool{self}
+	for _, nc := range ncoord {
+		nr := regionTypePart2(erosion, depth, nc, goalPos)
+		neededTool, ok := travel(r, nr, pt.tool)
+		if !ok {
+			continue
+		}
+		n = append(n, posTool{nc.x, nc.y, neededTool})
 	}
 	return n
 }
@@ -240,6 +196,139 @@ func travel(from, to region, t tool) (tool, bool) {
 		}
 	}
 	return t, false
+}
+
+func findRoute(start, goal posTool, erosion map[coord]int, depth int) int {
+	openSet := map[posTool]bool{
+		start: true,
+	}
+	cameFrom := map[posTool]posTool{}
+
+	gScore := map[posTool]float64{}
+	gScore[start] = 0
+
+	fScore := map[posTool]float64{}
+	fScore[start] = h(start, goal)
+
+	pq := priorityQueue{
+		&pqItem{
+			posTool: start,
+			fScore:  fScore[start],
+			index:   0,
+		},
+	}
+	heap.Init(&pq)
+
+	goalScore := float64(math.MaxInt64)
+
+	for pq.Len() != 0 {
+		item := heap.Pop(&pq).(*pqItem)
+		current := item.posTool
+		if current == goal {
+			goalScore = gScore[current]
+		}
+
+		delete(openSet, current)
+
+		for _, n := range neighbours(current, goal, erosion, depth) {
+			gCurrent := gScore[current]
+			gn := gScore[n]
+
+			tentativeGscore := gCurrent + g(current, n)
+			f := tentativeGscore + h(n, goal)
+
+			v, ok := fScore[n]
+			if !openSet[n] && f < goalScore && (!ok || f < v) {
+				openSet[n] = true
+				item := &pqItem{
+					posTool: n,
+					fScore:  f,
+				}
+				heap.Push(&pq, item)
+			} else if tentativeGscore >= gn {
+				continue
+			}
+			cameFrom[n] = current
+			gScore[n] = tentativeGscore
+			fScore[n] = f
+		}
+	}
+
+	return int(goalScore)
+}
+
+func g(p, q posTool) float64 {
+	var min float64
+	if !(p.x == q.x && p.y == q.y) {
+		min += 1.0
+	}
+	if p.tool != q.tool {
+		min += 7.0
+	}
+	return min
+}
+
+func h(p, q posTool) float64 {
+	m := manhattan(p, q)
+	if p.tool != q.tool {
+		m += 7
+	}
+	return m
+}
+
+func manhattan(p, q posTool) float64 {
+	dx := float64(q.x - p.x)
+	dy := float64(q.y - p.y)
+	return math.Abs(dx) + math.Abs(dy)
+}
+
+func reconstructPath(m map[posTool]posTool, current posTool) []posTool {
+	path := []posTool{current}
+	for {
+		prev, ok := m[current]
+		if !ok {
+			break
+		}
+		current = prev
+		path = append(path, current)
+	}
+	return path
+}
+
+type pqItem struct {
+	posTool posTool
+	fScore  float64
+	index   int
+}
+
+type priorityQueue []*pqItem
+
+func (pq priorityQueue) Len() int { return len(pq) }
+
+func (pq priorityQueue) Less(i, j int) bool {
+	return pq[i].fScore < pq[j].fScore
+}
+
+func (pq priorityQueue) Swap(i, j int) {
+	pq[i], pq[j] = pq[j], pq[i]
+	pq[i].index = i
+	pq[j].index = j
+}
+
+func (pq *priorityQueue) Push(x interface{}) {
+	n := len(*pq)
+	item := x.(*pqItem)
+	item.index = n
+	*pq = append(*pq, item)
+}
+
+func (pq *priorityQueue) Pop() interface{} {
+	old := *pq
+	n := len(old)
+	item := old[n-1]
+	item.index = -1
+	*pq = old[0 : n-1]
+	return item
 }
 
 func main() {
