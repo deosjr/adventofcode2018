@@ -88,14 +88,11 @@ func parseGroups(str string, immuneSystem bool) []*group {
 func targetSort(groups []*group) func(i, j int) bool {
 	return func(i, j int) bool {
 		gi, gj := groups[i], groups[j]
-		if gi.effectivePower() > gj.effectivePower() {
-			return true
-		}
-		if gi.effectivePower() < gj.effectivePower() {
-			return false
-		}
 		// equal effective power, tiebreaker is initiative
-		return gi.initiative > gj.initiative
+		if gi.effectivePower() == gj.effectivePower() {
+			return gi.initiative > gj.initiative
+		}
+		return gi.effectivePower() > gj.effectivePower()
 	}
 }
 
@@ -106,14 +103,20 @@ func attackSort(groups []*group) func(i, j int) bool {
 }
 
 func part1(groups []*group) int {
+	groups = combat(groups)
+	return sumUnits(groups)
+}
+
+func combat(groups []*group) []*group {
 	for !combatEnds(groups) {
+		sum := sumUnits(groups)
 		groups = fight(groups)
+		if sum == sumUnits(groups) {
+			// stalemate detected
+			break
+		}
 	}
-	sum := 0
-	for _, g := range groups {
-		sum += g.units
-	}
-	return sum
+	return groups
 }
 
 func combatEnds(groups []*group) bool {
@@ -129,30 +132,64 @@ func combatEnds(groups []*group) bool {
 	return true
 }
 
+func sumUnits(groups []*group) int {
+	sum := 0
+	for _, g := range groups {
+		sum += g.units
+	}
+	return sum
+}
+
 // fight simulates one round of combat
 func fight(groups []*group) []*group {
 	targets := map[*group]*group{}
 	targeted := map[*group]struct{}{}
+
 	sort.Slice(groups, targetSort(groups))
 	for _, g := range groups {
 		for _, e := range groups {
-			if g == e {
-				continue
-			}
+			// dont target own team
 			if g.immuneSystem == e.immuneSystem {
 				continue
 			}
+			// group can only be targeted once per fight
 			if _, ok := targeted[e]; ok {
 				continue
 			}
 			dmg := g.wouldDealDamage(e)
+			// can't target if you can't deal damage
+			if dmg == 0 {
+				continue
+			}
 			prevTarget, ok := targets[g]
+			// no target found yet? target e
 			if !ok {
 				targets[g] = e
 				continue
 			}
 			dmgOld := g.wouldDealDamage(prevTarget)
+			// if we deal less dmg to e than to previous target, target previous
+			// if we deal more dmg to e than to previous target, target e
+			if dmg < dmgOld {
+				continue
+			}
 			if dmg > dmgOld {
+				targets[g] = e
+				continue
+			}
+			// dmg == dmgOld: equal damage to previous and to e
+			// higher effective power is tiebreaker
+			ep, prevp := e.effectivePower(), prevTarget.effectivePower()
+			if ep < prevp {
+				continue
+			}
+			if ep > prevp {
+				targets[g] = e
+				continue
+			}
+			// ep == prep: equal effective power
+			// tiebreaker is higher initiative (which is unique)
+			if e.initiative > prevTarget.initiative {
 				targets[g] = e
 			}
 		}
@@ -164,6 +201,9 @@ func fight(groups []*group) []*group {
 
 	sort.Slice(groups, attackSort(groups))
 	for _, g := range groups {
+		if g.units <= 0 {
+			continue
+		}
 		target, ok := targets[g]
 		if !ok {
 			continue
@@ -173,11 +213,47 @@ func fight(groups []*group) []*group {
 
 	remaining := []*group{}
 	for _, g := range groups {
-		if g.units > 0 {
-			remaining = append(remaining, g)
+		if g.units <= 0 {
+			continue
 		}
+		remaining = append(remaining, g)
 	}
 	return remaining
+}
+
+func part2(input string) int {
+	var boost int
+	var groups []*group
+	for {
+		groups = parse(input)
+		boost++
+		groups = combatWithBoost(groups, boost)
+		if immuneSystemWins(groups) {
+			break
+		}
+	}
+	return sumUnits(groups)
+}
+
+func combatWithBoost(groups []*group, boost int) []*group {
+	for _, g := range groups {
+		if g.immuneSystem {
+			g.attackDamage += boost
+		}
+	}
+	return combat(groups)
+}
+
+func immuneSystemWins(groups []*group) bool {
+	if len(groups) == 0 {
+		return false
+	}
+	for _, g := range groups {
+		if !g.immuneSystem {
+			return false
+		}
+	}
+	return true
 }
 
 func main() {
@@ -186,6 +262,6 @@ func main() {
 		panic(err)
 	}
 	groups := parse(string(input))
-	out := part1(groups)
-	fmt.Printf("Part 1: %d\n", out)
+	fmt.Printf("Part 1: %d\n", part1(groups))
+	fmt.Printf("Part 2: %d\n", part2(string(input)))
 }
