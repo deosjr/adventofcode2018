@@ -56,13 +56,13 @@ func part1(nanobots []nanobot) int {
 }
 
 func part2(nanobots []nanobot) int {
-	xmin, xmax := -100, 100
-	ymin, ymax := -100, 100
-	zmin, zmax := -100, 100
+	xmin, xmax := -10, 10
+	ymin, ymax := -10, 10
+	zmin, zmax := -10, 10
 	var best []coord
 	var bestSum int
 
-	for exp := 6; exp >= 0; exp-- {
+	for exp := 7; exp >= 0; exp-- {
 		zoom := int(math.Pow(10, float64(exp)))
 		zoomedBots := make([]nanobot, len(nanobots))
 		for i, n := range nanobots {
